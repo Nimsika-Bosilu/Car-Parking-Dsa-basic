@@ -1,441 +1,435 @@
 #include "raylib.h"
-#include <iostream>
 #include <cmath>
 #include <vector>
 #include <algorithm>
 #include <string>
-
 using namespace std;
 
-// ===== STRUCTS (From Original Logic) =====
+// ===== STRUCTS =====
 struct CarPark {
     string name;
-    int x, y;
-    int capacity;
+    int x, y, capacity;
     vector<string> cars;
     CarPark* next;
 };
+struct ParkOption { CarPark* park; double distance; };
 
-struct ParkOption {
-    CarPark* park;
-    double distance;
-};
-
-// ===== CLASS (From Original Logic, modified to return strings for UI) =====
+// ===== CLASS =====
 class ParkingSystem {
-private:
     CarPark* head;
-
 public:
-    ParkingSystem() {
-        head = NULL;
-    }
+    ParkingSystem() : head(NULL) {}
 
-    string addCarPark(string name, int x, int y, int capacity) {
-        if (name.empty()) return "Error: Park name cannot be empty!";
-        if (capacity <= 0) return "Error: Capacity must be greater than 0!";
-        CarPark* newPark = new CarPark{name, x, y, capacity, {}, NULL};
-        if (!head) head = newPark;
-        else {
-            CarPark* temp = head;
-            while (temp->next) temp = temp->next;
-            temp->next = newPark;
-        }
-        return "Car park '" + name + "' added successfully!";
+    string addCarPark(string name, int x, int y, int cap) {
+        if (name.empty()) return "Error: Name cannot be empty!";
+        if (cap <= 0)     return "Error: Capacity must be > 0!";
+        CarPark* n = new CarPark{name, x, y, cap, {}, NULL};
+        if (!head) head = n;
+        else { CarPark* t = head; while (t->next) t = t->next; t->next = n; }
+        return "Park '" + name + "' added!";
     }
 
     string removeCarPark(string name) {
-        CarPark* temp = head;
-        CarPark* prev = NULL;
-        while (temp) {
-            if (temp->name == name) {
-                if (prev) prev->next = temp->next;
-                else head = temp->next;
-                delete temp;
-                return "Car park '" + name + "' removed!";
+        CarPark *t = head, *prev = NULL;
+        while (t) {
+            if (t->name == name) {
+                if (prev) prev->next = t->next; else head = t->next;
+                delete t; return "Park '" + name + "' removed!";
             }
-            prev = temp;
-            temp = temp->next;
+            prev = t; t = t->next;
         }
-        return "Car park not found!";
+        return "Park not found!";
     }
 
-    vector<ParkOption> searchNearestParks(int userX, int userY) {
-        vector<ParkOption> options;
-        CarPark* temp = head;
-        while (temp) {
-            if ((int)temp->cars.size() < temp->capacity) {
-                double dist = sqrt(pow(temp->x - userX, 2) + pow(temp->y - userY, 2));
-                options.push_back({temp, dist});
-            }
-            temp = temp->next;
-        }
-        sort(options.begin(), options.end(), [](ParkOption a, ParkOption b) {
-            return a.distance < b.distance;
-        });
-        return options;
+    vector<ParkOption> searchNearest(int ux, int uy) {
+        vector<ParkOption> v;
+        for (CarPark* t = head; t; t = t->next)
+            if ((int)t->cars.size() < t->capacity)
+                v.push_back({t, sqrt(pow(t->x-ux,2)+pow(t->y-uy,2))});
+        sort(v.begin(), v.end(), [](ParkOption a, ParkOption b){ return a.distance < b.distance; });
+        return v;
     }
 
-    string parkCar(string parkName, string carNumber) {
-        if (parkName.empty() || carNumber.empty()) return "Error: Park name and car number required!";
-        CarPark* temp = head;
-        while (temp) {
-            if (temp->name == parkName) {
-                if ((int)temp->cars.size() < temp->capacity) {
-                    temp->cars.push_back(carNumber);
-                    return "Car " + carNumber + " parked in " + parkName + "!";
-                } else {
-                    return "Park '" + parkName + "' is FULL!";
-                }
+    string parkCar(string park, string car) {
+        if (park.empty()||car.empty()) return "Error: Both fields required!";
+        for (CarPark* t = head; t; t = t->next)
+            if (t->name == park) {
+                if ((int)t->cars.size() < t->capacity) { t->cars.push_back(car); return "Car "+car+" parked in "+park+"!"; }
+                return "Park '"+park+"' is FULL!";
             }
-            temp = temp->next;
-        }
-        return "Car park '" + parkName + "' not found!";
+        return "Park '"+park+"' not found!";
     }
 
-    string removeCar(string carNumber) {
-        if (carNumber.empty()) return "Error: Car number required!";
-        CarPark* temp = head;
-        while (temp) {
-            for (int i = 0; i < (int)temp->cars.size(); i++) {
-                if (temp->cars[i] == carNumber) {
-                    temp->cars.erase(temp->cars.begin() + i);
-                    return "Car " + carNumber + " removed from " + temp->name + "!";
-                }
-            }
-            temp = temp->next;
-        }
-        return "Car '" + carNumber + "' not found!";
+    string removeCar(string car) {
+        if (car.empty()) return "Error: Car number required!";
+        for (CarPark* t = head; t; t = t->next)
+            for (int i=0;i<(int)t->cars.size();i++)
+                if (t->cars[i]==car) { t->cars.erase(t->cars.begin()+i); return "Car "+car+" removed from "+t->name+"!"; }
+        return "Car '"+car+"' not found!";
     }
 
-    string findCar(string carNumber) {
-        if (carNumber.empty()) return "Error: Car number required!";
-        CarPark* temp = head;
-        while (temp) {
-            for (string car : temp->cars) {
-                if (car == carNumber) {
-                    return "Car " + carNumber + " is located in " + temp->name;
-                }
-            }
-            temp = temp->next;
-        }
-        return "Car '" + carNumber + "' not found!";
+    string findCar(string car) {
+        if (car.empty()) return "Error: Car number required!";
+        for (CarPark* t = head; t; t = t->next)
+            for (auto& c : t->cars) if (c==car) return "Car "+car+" is in "+t->name;
+        return "Car '"+car+"' not found!";
+    }
+
+    // Collect all park names into a vector
+    vector<string> getParkNames() {
+        vector<string> v;
+        for (CarPark* t = head; t; t = t->next) v.push_back(t->name);
+        return v;
+    }
+
+    CarPark* getByName(string name) {
+        for (CarPark* t = head; t; t = t->next) if (t->name == name) return t;
+        return NULL;
     }
 
     CarPark* getHead() { return head; }
 };
 
-
 // ===== UI HELPERS =====
-bool DrawButton(Rectangle rect, const char* label, Color col = DARKGRAY) {
-    Vector2 mouse = GetMousePosition();
-    bool clicked = false;
-    Color draw = col;
-    if (CheckCollisionPointRec(mouse, rect)) {
-        draw = (Color){(unsigned char)min(255, col.r + 40), (unsigned char)min(255, col.g + 40), (unsigned char)min(255, col.b + 40), 255};
-        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) clicked = true;
-    }
-    DrawRectangleRec(rect, draw);
-    DrawRectangleLinesEx(rect, 2, LIGHTGRAY);
-    int tw = MeasureText(label, 18);
-    DrawText(label, (int)(rect.x + (rect.width - tw) / 2), (int)(rect.y + (rect.height - 18) / 2), 18, WHITE);
+bool DrawBtn(Rectangle r, const char* lbl, Color col) {
+    Vector2 m = GetMousePosition();
+    bool hit = CheckCollisionPointRec(m, r);
+    bool clicked = hit && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+    Color c = hit ? (Color){(unsigned char)min(255,col.r+40),(unsigned char)min(255,col.g+40),(unsigned char)min(255,col.b+40),255} : col;
+    DrawRectangleRec(r, c);
+    DrawRectangleLinesEx(r, 2, (Color){180,180,220,255});
+    int tw = MeasureText(lbl, 18);
+    DrawText(lbl, (int)(r.x+(r.width-tw)/2), (int)(r.y+(r.height-18)/2), 18, WHITE);
     return clicked;
 }
 
-void DrawTextInput(Rectangle rect, string &text, bool &isActive, const char* hint = "") {
-    Vector2 mouse = GetMousePosition();
+void DrawInput(Rectangle r, string& txt, bool& active, const char* hint="") {
     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
-        isActive = CheckCollisionPointRec(mouse, rect);
-
-    DrawRectangleRec(rect, isActive ? (Color){240,240,255,255} : RAYWHITE);
-    DrawRectangleLinesEx(rect, 2, isActive ? BLUE : GRAY);
-
-    if (text.empty() && !isActive) {
-        DrawText(hint, (int)rect.x + 6, (int)rect.y + 10, 18, LIGHTGRAY);
-    } else {
-        DrawText(text.c_str(), (int)rect.x + 6, (int)rect.y + 10, 18, BLACK);
+        active = CheckCollisionPointRec(GetMousePosition(), r);
+    DrawRectangleRec(r, active?(Color){230,240,255,255}:RAYWHITE);
+    DrawRectangleLinesEx(r, 2, active?BLUE:GRAY);
+    if (txt.empty()&&!active) DrawText(hint,(int)r.x+6,(int)r.y+10,17,LIGHTGRAY);
+    else DrawText(txt.c_str(),(int)r.x+6,(int)r.y+10,17,BLACK);
+    if (active) {
+        int k = GetCharPressed();
+        while (k>0) { if (k>=32&&k<=125&&(int)txt.size()<20) txt+=(char)k; k=GetCharPressed(); }
+        if (IsKeyPressed(KEY_BACKSPACE)&&!txt.empty()) txt.pop_back();
     }
+}
 
-    if (isActive) {
-        int key = GetCharPressed();
-        while (key > 0) {
-            if (key >= 32 && key <= 125 && (int)text.length() < 20)
-                text += (char)key;
-            key = GetCharPressed();
+// ===== DROPDOWN WIDGET =====
+// Returns true if selection changed. isOpen is the open/close flag.
+bool DrawDropdown(Rectangle r, vector<string>& items, int& sel, bool& isOpen) {
+    bool changed = false;
+    string lbl = (sel>=0&&sel<(int)items.size()) ? items[sel] : "-- Select Park --";
+    // Main box
+    bool boxHit = CheckCollisionPointRec(GetMousePosition(), r);
+    DrawRectangleRec(r, (Color){230,240,255,255});
+    DrawRectangleLinesEx(r, 2, isOpen?BLUE:GRAY);
+    DrawText(lbl.c_str(), (int)r.x+8, (int)r.y+10, 17, BLACK);
+    // Arrow
+    DrawText(isOpen ? "^" : "v", (int)(r.x+r.width-22), (int)r.y+10, 17, DARKGRAY);
+    if (boxHit && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) isOpen = !isOpen;
+
+    // Dropdown list (drawn on top, so call AFTER other widgets)
+    if (isOpen) {
+        float itemH = 34;
+        for (int i=0;i<(int)items.size();i++) {
+            Rectangle ir = {r.x, r.y+r.height+i*itemH, r.width, itemH};
+            bool hover = CheckCollisionPointRec(GetMousePosition(), ir);
+            DrawRectangleRec(ir, hover?(Color){180,210,255,255}:(Color){240,245,255,255});
+            DrawRectangleLinesEx(ir, 1, (Color){180,200,240,255});
+            DrawText(items[i].c_str(), (int)ir.x+8, (int)ir.y+8, 17, BLACK);
+            if (hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                sel = i; isOpen = false; changed = true;
+            }
         }
-        if (IsKeyPressed(KEY_BACKSPACE) && !text.empty())
-            text.pop_back();
     }
+    return changed;
 }
-
-// Draw a labeled input row
-void DrawInputRow(const char* label, Rectangle rect, string &val, bool &active, const char* hint = "") {
-    DrawText(label, (int)rect.x - 130, (int)rect.y + 10, 18, WHITE);
-    DrawTextInput(rect, val, active, hint);
-}
-
 
 // ===== MAIN =====
 int main() {
-    const int SW = 1100;
-    const int SH = 700;
+    const int SW = 1280, SH = 800;
     InitWindow(SW, SH, "Smart Car Park System");
     SetTargetFPS(60);
 
     ParkingSystem ps;
+    string pnames[10]={"ParkA","ParkB","ParkC","ParkD","ParkE","ParkF","ParkG","ParkH","ParkI","ParkJ"};
+    int pcoords[10][2]={{2,3},{10,5},{-4,7},{6,-2},{0,0},{8,1},{-6,-3},{3,9},{-2,4},{7,-5}};
+    int pcaps[10]={3,5,4,2,6,3,4,5,2,3};
+    for (int i=0;i<10;i++) ps.addCarPark(pnames[i],pcoords[i][0],pcoords[i][1],pcaps[i]);
 
-    // Pre-load 10 parks (same as original)
-    string names[10] = {"ParkA","ParkB","ParkC","ParkD","ParkE","ParkF","ParkG","ParkH","ParkI","ParkJ"};
-    int coords[10][2] = {{2,3},{10,5},{-4,7},{6,-2},{0,0},{8,1},{-6,-3},{3,9},{-2,4},{7,-5}};
-    int caps[10]      = {3,5,4,2,6,3,4,5,2,3};
-    for (int i = 0; i < 10; i++)
-        ps.addCarPark(names[i], coords[i][0], coords[i][1], caps[i]);
-
-    // Tab: 0=Map, 1=ParkCar, 2=AddPark, 3=ShowAll, 4=Search
     int tab = 0;
     string statusMsg = "Welcome to Smart Car Park System!";
     bool statusOK = true;
 
-    // --- Tab 1: Manage Car inputs ---
-    string t1ParkName, t1CarNum;
-    bool t1APark = false, t1ACar = false;
+    // Tab 1 – Park/Remove/Find Car
+    int   t1SelPark=-1; bool t1DDOpen=false;
+    string t1CarNum; bool t1ACar=false;
 
-    // --- Tab 2: Add Car Park inputs ---
-    string t2Name, t2X, t2Y, t2Cap;
-    bool t2AName=false, t2AX=false, t2AY=false, t2ACap=false;
+    // Tab 2 – Add / Remove Park
+    string t2Name,t2X,t2Y,t2Cap;
+    bool t2AN=false,t2AX=false,t2AY=false,t2AC=false;
+    int  t2SelRem=-1; bool t2DDOpen=false;
 
-    // --- Tab 4: Search ---
-    string t4X, t4Y;
-    bool t4AX=false, t4AY=false;
-    vector<ParkOption> searchResults;
+    // Tab 4 – Search
+    string t4X,t4Y; bool t4AX=false,t4AY=false;
+    vector<ParkOption> searchRes;
 
-    // Tab buttons
-    Rectangle tabs[5] = {
-        {20, 80, 130, 38},
-        {160, 80, 130, 38},
-        {300, 80, 140, 38},
-        {450, 80, 120, 38},
-        {580, 80, 160, 38}
-    };
-    const char* tabLabels[5] = {"View Map","Park Car","Add Park","Show All","Search"};
+    // Tab labels + widths
+    const char* tabLbls[5]={"  View Map  ","  Park Car  ","  Add Park  ","  Show All  ","   Search   "};
+    int tabW[5]={150,150,150,150,150};
+    int tabStartX=24, tabY=68, tabH=42;
 
     while (!WindowShouldClose()) {
+        // Build park names each frame (may change if added/removed)
+        vector<string> parkNames = ps.getParkNames();
+
         BeginDrawing();
-        ClearBackground(GetColor(0x141428FF));
+        ClearBackground(GetColor(0x0F0F2AFF));
 
-        // Header
-        DrawText("SMART CAR PARK SYSTEM", 20, 20, 28, SKYBLUE);
-        DrawLine(20, 58, SW-20, 58, (Color){80,80,130,255});
+        // ---- HEADER ----
+        DrawRectangle(0,0,SW,60,(Color){18,18,50,255});
+        DrawText("SMART CAR PARK SYSTEM", 24, 14, 30, SKYBLUE);
+        DrawText("DSA Project", SW-120, 20, 18, (Color){100,140,220,255});
+        DrawLine(0,60,SW,60,(Color){60,60,120,255});
 
-        // Draw tabs
-        for (int i = 0; i < 5; i++) {
-            Color tc = (tab == i) ? (Color){30,80,180,255} : (Color){50,50,80,255};
-            DrawButton(tabs[i], tabLabels[i], tc);
-            if (CheckCollisionPointRec(GetMousePosition(), tabs[i]) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
-                tab = i;
+        // ---- MENU BAR ----
+        DrawRectangle(0,60,SW,54,(Color){22,22,58,255});
+        int tx = tabStartX;
+        for (int i=0;i<5;i++) {
+            Rectangle tr={(float)tx,(float)tabY,(float)tabW[i],(float)tabH};
+            Color tc = (tab==i)?(Color){40,100,220,255}:(Color){45,45,80,255};
+            if (DrawBtn(tr, tabLbls[i], tc)) tab=i;
+            // Active underline
+            if (tab==i) DrawRectangle(tx, tabY+tabH-4, tabW[i], 4, SKYBLUE);
+            tx += tabW[i]+6;
         }
+        DrawLine(0,114,SW,114,(Color){50,50,100,255});
 
-        DrawLine(20, 126, SW-20, 126, (Color){60,60,100,255});
+        // ---- STATUS BAR ----
+        DrawRectangle(0,SH-46,SW,46,(Color){15,15,40,255});
+        DrawLine(0,SH-46,SW,SH-46,(Color){50,50,110,255});
+        DrawText("STATUS:", 14, SH-30, 17, (Color){100,120,200,255});
+        DrawText(statusMsg.c_str(), 90, SH-30, 17, statusOK?(Color){80,240,130,255}:(Color){255,100,100,255});
 
-        // Status bar
-        DrawRectangle(0, SH-44, SW, 44, (Color){20,20,50,255});
-        DrawLine(0, SH-44, SW, SH-44, (Color){60,60,120,255});
-        DrawText(statusMsg.c_str(), 16, SH-30, 18, statusOK ? (Color){80,255,140,255} : (Color){255,100,100,255});
-
-        // ============ TAB 0: VIEW MAP ============
-        if (tab == 0) {
-            int cx = SW/2, cy = SH/2 + 40, scale = 30;
+        // ========== TAB 0: VIEW MAP ==========
+        if (tab==0) {
+            int cx=SW/2, cy=(SH+114)/2+10, scale=40;
+            // Grid lines
+            for (int g=-12;g<=12;g++) {
+                DrawLine(cx+g*scale,115,cx+g*scale,SH-46,(Color){35,35,65,255});
+                DrawLine(24,cy-g*scale,SW-24,cy-g*scale,(Color){35,35,65,255});
+            }
             // Axes
-            DrawLine(cx, 135, cx, SH-55, (Color){80,80,80,255});
-            DrawLine(20, cy, SW-20, cy, (Color){80,80,80,255});
-            DrawText("N", cx+4, 140, 14, GRAY);
-            DrawText("S", cx+4, SH-68, 14, GRAY);
-            DrawText("E", SW-32, cy-16, 14, GRAY);
-            DrawText("W", 24, cy-16, 14, GRAY);
-            DrawText("City Map - Green=Available  Red=Full", 30, 138, 16, LIGHTGRAY);
+            DrawLine(cx,115,cx,SH-46,(Color){80,80,120,255});
+            DrawLine(24,cy,SW-24,cy,(Color){80,80,120,255});
+            DrawText("N",cx+6,120,16,(Color){120,120,160,255});
+            DrawText("S",cx+6,SH-68,16,(Color){120,120,160,255});
+            DrawText("E",SW-38,cy-18,16,(Color){120,120,160,255});
+            DrawText("W",28,cy-18,16,(Color){120,120,160,255});
 
-            CarPark* tmp = ps.getHead();
-            while (tmp) {
-                int dx = cx + tmp->x * scale;
-                int dy = cy - tmp->y * scale;
-                bool avail = (int)tmp->cars.size() < tmp->capacity;
-                Color pc = avail ? (Color){40,200,80,255} : (Color){220,50,50,255};
-                DrawCircle(dx, dy, 18, pc);
-                DrawCircleLines(dx, dy, 18, WHITE);
-                DrawText(tmp->name.c_str(), dx - 22, dy - 36, 15, WHITE);
-                string ct = to_string(tmp->cars.size()) + "/" + to_string(tmp->capacity);
-                DrawText(ct.c_str(), dx - 14, dy + 22, 14, YELLOW);
-                tmp = tmp->next;
+            // Legend
+            DrawCircle(SW-130,130,10,(Color){40,200,80,255}); DrawText("Available",SW-115,123,15,LIGHTGRAY);
+            DrawCircle(SW-130,155,10,(Color){220,50,50,255}); DrawText("Full",SW-115,148,15,LIGHTGRAY);
+
+            for (CarPark* t=ps.getHead();t;t=t->next) {
+                int dx=cx+t->x*scale, dy=cy-t->y*scale;
+                bool av=(int)t->cars.size()<t->capacity;
+                Color pc=av?(Color){40,200,80,255}:(Color){220,50,50,255};
+                DrawCircle(dx,dy,20,pc);
+                DrawCircleLines(dx,dy,20,WHITE);
+                // Park name above
+                int nw=MeasureText(t->name.c_str(),14);
+                DrawText(t->name.c_str(),dx-nw/2,dy-38,14,WHITE);
+                // Capacity below
+                string ct=to_string(t->cars.size())+"/"+to_string(t->capacity);
+                int cw=MeasureText(ct.c_str(),13);
+                DrawText(ct.c_str(),dx-cw/2,dy+24,13,YELLOW);
             }
         }
 
-        // ============ TAB 1: PARK / REMOVE / FIND CAR ============
-        else if (tab == 1) {
-            DrawText("Manage Cars", 30, 148, 22, SKYBLUE);
-            DrawLine(30, 174, 500, 174, (Color){60,60,100,255});
+        // ========== TAB 1: PARK / REMOVE / FIND CAR ==========
+        else if (tab==1) {
+            DrawText("Manage Cars", 30, 130, 22, SKYBLUE);
+            DrawLine(30,156,SW-30,156,(Color){50,50,100,255});
 
-            DrawInputRow("Park Name:", {200, 190, 280, 38}, t1ParkName, t1APark, "e.g. ParkA");
-            DrawInputRow("Car Number:", {200, 244, 280, 38}, t1CarNum, t1ACar, "e.g. CAR-1234");
+            // Left panel – inputs
+            DrawRectangle(24,164,520,360,(Color){20,20,50,255});
+            DrawRectangleLinesEx({24,164,520,360},2,(Color){50,50,100,255});
 
-            if (DrawButton({200, 302, 130, 40}, "Park Car",   (Color){20,130,50,255})) {
-                statusMsg = ps.parkCar(t1ParkName, t1CarNum);
-                statusOK  = statusMsg.find("parked") != string::npos;
+            DrawText("Select Park:", 44, 190, 18, LIGHTGRAY);
+            DrawText("Car Number:", 44, 250, 18, LIGHTGRAY);
+            DrawInput({220,244,300,38},t1CarNum,t1ACar,"e.g. CAR-1234");
+
+            // Action buttons
+            if (DrawBtn({44,310,150,44},"Park Car",(Color){20,130,50,255})) {
+                string pk = (t1SelPark>=0&&t1SelPark<(int)parkNames.size()) ? parkNames[t1SelPark] : "";
+                statusMsg=ps.parkCar(pk,t1CarNum);
+                statusOK=statusMsg.find("parked")!=string::npos;
             }
-            if (DrawButton({344, 302, 140, 40}, "Remove Car", (Color){160,40,40,255})) {
-                statusMsg = ps.removeCar(t1CarNum);
-                statusOK  = statusMsg.find("removed") != string::npos;
+            if (DrawBtn({210,310,150,44},"Remove Car",(Color){160,30,30,255})) {
+                statusMsg=ps.removeCar(t1CarNum);
+                statusOK=statusMsg.find("removed")!=string::npos;
             }
-            if (DrawButton({498, 302, 120, 40}, "Find Car",   (Color){40,80,160,255})) {
-                statusMsg = ps.findCar(t1CarNum);
-                statusOK  = statusMsg.find("located") != string::npos;
+            if (DrawBtn({376,310,144,44},"Find Car",(Color){30,80,160,255})) {
+                string pk=(t1SelPark>=0&&t1SelPark<(int)parkNames.size())?parkNames[t1SelPark]:"";
+                statusMsg=ps.findCar(t1CarNum);
+                statusOK=statusMsg.find("in")!=string::npos;
             }
 
-            // Show parked cars for the entered park
-            if (!t1ParkName.empty()) {
-                CarPark* tmp = ps.getHead();
-                while (tmp) {
-                    if (tmp->name == t1ParkName) {
-                        DrawText("Cars currently parked:", 200, 370, 18, LIGHTGRAY);
-                        if (tmp->cars.empty()) {
-                            DrawText("  (empty)", 200, 394, 16, GRAY);
-                        } else {
-                            for (int i = 0; i < (int)tmp->cars.size(); i++) {
-                                DrawText(("  " + tmp->cars[i]).c_str(), 200, 394 + i*22, 16, YELLOW);
-                            }
-                        }
-                        break;
-                    }
-                    tmp = tmp->next;
-                }
+            // Right panel – selected park info
+            string selPkName = (t1SelPark>=0&&t1SelPark<(int)parkNames.size()) ? parkNames[t1SelPark] : "";
+            CarPark* sp = selPkName.empty() ? NULL : ps.getByName(selPkName);
+            DrawRectangle(560,164,SW-584,360,(Color){20,20,50,255});
+            DrawRectangleLinesEx({560,164,(float)(SW-584),360},2,(Color){50,50,100,255});
+            DrawText("Park Details", 578, 180, 18, SKYBLUE);
+            if (sp) {
+                DrawText(("Name     : "+sp->name).c_str(),578,210,17,WHITE);
+                DrawText(("Location : ("+to_string(sp->x)+", "+to_string(sp->y)+")").c_str(),578,234,17,LIGHTGRAY);
+                DrawText(("Capacity : "+to_string(sp->capacity)).c_str(),578,258,17,WHITE);
+                int fr=sp->capacity-(int)sp->cars.size();
+                DrawText(("Free     : "+to_string(fr)).c_str(),578,282,17,fr>0?(Color){80,220,100,255}:(Color){220,80,80,255});
+                DrawText("Cars parked:", 578, 318, 17, LIGHTGRAY);
+                if (sp->cars.empty()) DrawText("  (none)",578,342,16,GRAY);
+                else for (int i=0;i<(int)sp->cars.size();i++)
+                    DrawText(("  "+sp->cars[i]).c_str(),578,342+i*22,16,YELLOW);
+            } else {
+                DrawText("Select a park to see details", 578, 220, 16, GRAY);
             }
+
+            // Draw dropdown LAST (on top of everything)
+            DrawDropdown({220,184,300,38},parkNames,t1SelPark,t1DDOpen);
         }
 
-        // ============ TAB 2: ADD / REMOVE PARK ============
-        else if (tab == 2) {
-            DrawText("Add / Remove Car Park", 30, 148, 22, SKYBLUE);
-            DrawLine(30, 174, 600, 174, (Color){60,60,100,255});
+        // ========== TAB 2: ADD / REMOVE PARK ==========
+        else if (tab==2) {
+            DrawText("Add / Remove Car Park", 30, 130, 22, SKYBLUE);
+            DrawLine(30,156,SW-30,156,(Color){50,50,100,255});
 
-            DrawInputRow("Park Name:", {240, 192, 280, 38}, t2Name, t2AName, "e.g. ParkZ");
-            DrawInputRow("Location X:", {240, 244, 120, 38}, t2X, t2AX, "e.g. 5");
-            DrawInputRow("Location Y:", {240, 298, 120, 38}, t2Y, t2AY, "e.g. -3");
-            DrawInputRow("Capacity:", {240, 352, 120, 38}, t2Cap, t2ACap, "e.g. 4");
+            // Add section
+            DrawRectangle(24,164,560,340,(Color){20,20,50,255});
+            DrawRectangleLinesEx({24,164,560,340},2,(Color){50,50,100,255});
+            DrawText("Add New Park", 44,180,18,SKYBLUE);
+            DrawLine(44,202,550,202,(Color){40,40,90,255});
 
-            if (DrawButton({240, 410, 160, 42}, "Add Car Park", (Color){20,130,60,255})) {
+            DrawText("Park Name:", 44, 218, 17, LIGHTGRAY);
+            DrawText("Location X:", 44, 264, 17, LIGHTGRAY);
+            DrawText("Location Y:", 44, 310, 17, LIGHTGRAY);
+            DrawText("Capacity :", 44, 356, 17, LIGHTGRAY);
+
+            DrawInput({200,212,340,36},t2Name,t2AN,"e.g. ParkZ");
+            DrawInput({200,258,120,36},t2X,t2AX,"e.g. 5");
+            DrawInput({200,304,120,36},t2Y,t2AY,"e.g. -3");
+            DrawInput({200,350,120,36},t2Cap,t2AC,"e.g. 4");
+
+            if (DrawBtn({44,404,180,44},"Add Car Park",(Color){20,130,60,255})) {
                 try {
-                    int x = t2X.empty() ? 0 : stoi(t2X);
-                    int y = t2Y.empty() ? 0 : stoi(t2Y);
-                    int c = t2Cap.empty() ? 0 : stoi(t2Cap);
-                    statusMsg = ps.addCarPark(t2Name, x, y, c);
-                    statusOK = statusMsg.find("added") != string::npos;
-                    if (statusOK) { t2Name=""; t2X=""; t2Y=""; t2Cap=""; }
-                } catch (...) {
-                    statusMsg = "Error: X, Y, Capacity must be numbers!";
-                    statusOK = false;
-                }
+                    int x=t2X.empty()?0:stoi(t2X), y=t2Y.empty()?0:stoi(t2Y), c=t2Cap.empty()?0:stoi(t2Cap);
+                    statusMsg=ps.addCarPark(t2Name,x,y,c);
+                    statusOK=statusMsg.find("added")!=string::npos;
+                    if(statusOK){t2Name="";t2X="";t2Y="";t2Cap="";}
+                } catch(...){ statusMsg="Error: X,Y,Capacity must be numbers!"; statusOK=false; }
             }
-            if (DrawButton({420, 410, 190, 42}, "Remove Car Park", (Color){140,30,30,255})) {
-                statusMsg = ps.removeCarPark(t2Name);
-                statusOK = statusMsg.find("removed") != string::npos;
+
+            // Remove section
+            DrawRectangle(608,164,SW-632,340,(Color){20,20,50,255});
+            DrawRectangleLinesEx({608,164,(float)(SW-632),340},2,(Color){50,50,100,255});
+            DrawText("Remove Park", 628,180,18,SKYBLUE);
+            DrawLine(628,202,SW-40,202,(Color){40,40,90,255});
+            DrawText("Select Park:", 628, 218, 17, LIGHTGRAY);
+            if (DrawBtn({628,390,200,44},"Remove Park",(Color){160,30,30,255})) {
+                string rn=(t2SelRem>=0&&t2SelRem<(int)parkNames.size())?parkNames[t2SelRem]:"";
+                statusMsg=ps.removeCarPark(rn);
+                statusOK=statusMsg.find("removed")!=string::npos;
+                if(statusOK) t2SelRem=-1;
+            }
+            // Dropdown last (on top)
+            DrawDropdown({628,238,(float)(SW-668),38},parkNames,t2SelRem,t2DDOpen);
+        }
+
+        // ========== TAB 3: SHOW ALL ==========
+        else if (tab==3) {
+            DrawText("All Car Parks", 30, 130, 22, SKYBLUE);
+            DrawLine(30,156,SW-30,156,(Color){50,50,100,255});
+
+            // Header row
+            DrawRectangle(24,162,SW-48,32,(Color){30,35,75,255});
+            DrawText("Park",     40, 170, 16, (Color){150,180,255,255});
+            DrawText("Location", 180,170, 16, (Color){150,180,255,255});
+            DrawText("Cap",      310,170, 16, (Color){150,180,255,255});
+            DrawText("Free",     380,170, 16, (Color){150,180,255,255});
+            DrawText("Status",   460,170, 16, (Color){150,180,255,255});
+            DrawText("Cars Parked", 580, 170, 16, (Color){150,180,255,255});
+            DrawLine(24,194,SW-24,194,(Color){50,55,110,255});
+
+            CarPark* t=ps.getHead(); int row=0;
+            while(t) {
+                int ry=198+row*40;
+                if(ry+40>SH-50){DrawText("...",(int)40,ry,15,GRAY);break;}
+                bool av=(int)t->cars.size()<t->capacity;
+                if(row%2==0) DrawRectangle(24,ry,SW-48,40,(Color){22,22,55,255});
+                DrawText(t->name.c_str(),40,ry+10,17,WHITE);
+                string loc="("+to_string(t->x)+","+to_string(t->y)+")";
+                DrawText(loc.c_str(),180,ry+10,17,LIGHTGRAY);
+                DrawText(to_string(t->capacity).c_str(),318,ry+10,17,WHITE);
+                int fr=t->capacity-(int)t->cars.size();
+                DrawText(to_string(fr).c_str(),386,ry+10,17,fr>0?(Color){80,220,100,255}:(Color){220,80,80,255});
+                DrawText(av?"OPEN":"FULL",462,ry+10,17,av?(Color){60,210,80,255}:(Color){220,60,60,255});
+                string cl; for(int i=0;i<(int)t->cars.size();i++){if(i)cl+=", ";cl+=t->cars[i];}
+                if(cl.empty())cl="-";
+                DrawText(cl.c_str(),582,ry+10,15,YELLOW);
+                t=t->next; row++;
             }
         }
 
-        // ============ TAB 3: SHOW ALL ============
-        else if (tab == 3) {
-            DrawText("All Car Parks", 30, 148, 22, SKYBLUE);
-            DrawLine(30, 174, SW-30, 174, (Color){60,60,100,255});
+        // ========== TAB 4: SEARCH ==========
+        else if (tab==4) {
+            DrawText("Search Nearest Available Park", 30, 130, 22, SKYBLUE);
+            DrawLine(30,156,SW-30,156,(Color){50,50,100,255});
 
-            // Column headers
-            DrawText("Park Name", 30, 185, 16, LIGHTGRAY);
-            DrawText("Location", 200, 185, 16, LIGHTGRAY);
-            DrawText("Capacity", 320, 185, 16, LIGHTGRAY);
-            DrawText("Free", 430, 185, 16, LIGHTGRAY);
-            DrawText("Status", 510, 185, 16, LIGHTGRAY);
-            DrawText("Cars Parked", 620, 185, 16, LIGHTGRAY);
-            DrawLine(30, 205, SW-30, 205, (Color){60,60,100,255});
+            DrawRectangle(24,164,400,160,(Color){20,20,50,255});
+            DrawRectangleLinesEx({24,164,400,160},2,(Color){50,50,100,255});
+            DrawText("Your X:", 44,190,18,LIGHTGRAY);
+            DrawText("Your Y:", 44,240,18,LIGHTGRAY);
+            DrawInput({160,184,200,36},t4X,t4AX,"e.g. 0");
+            DrawInput({160,234,200,36},t4Y,t4AY,"e.g. 0");
 
-            CarPark* tmp = ps.getHead();
-            int row = 0;
-            while (tmp) {
-                int ry = 212 + row * 44;
-                bool avail = (int)tmp->cars.size() < tmp->capacity;
-
-                // Row background
-                if (row % 2 == 0)
-                    DrawRectangle(28, ry - 2, SW - 56, 40, (Color){30,30,55,255});
-
-                DrawText(tmp->name.c_str(), 30, ry + 8, 17, WHITE);
-                string loc = "(" + to_string(tmp->x) + "," + to_string(tmp->y) + ")";
-                DrawText(loc.c_str(), 200, ry + 8, 17, LIGHTGRAY);
-                DrawText(to_string(tmp->capacity).c_str(), 340, ry + 8, 17, WHITE);
-                int free = tmp->capacity - (int)tmp->cars.size();
-                DrawText(to_string(free).c_str(), 440, ry + 8, 17, free > 0 ? (Color){80,220,100,255} : (Color){220,80,80,255});
-                DrawText(avail ? "OPEN" : "FULL", 510, ry + 8, 17, avail ? (Color){60,220,80,255} : (Color){220,60,60,255});
-
-                // Cars list
-                string carList = "";
-                for (int i = 0; i < (int)tmp->cars.size(); i++) {
-                    if (i > 0) carList += ", ";
-                    carList += tmp->cars[i];
-                }
-                if (carList.empty()) carList = "-";
-                DrawText(carList.c_str(), 620, ry + 8, 15, YELLOW);
-
-                tmp = tmp->next;
-                row++;
-                if (ry + 44 > SH - 50) { // safety: don't draw off screen
-                    DrawText("... scroll not shown ...", 30, ry + 48, 15, GRAY);
-                    break;
-                }
-            }
-        }
-
-        // ============ TAB 4: SEARCH NEAREST ============
-        else if (tab == 4) {
-            DrawText("Search Nearest Available Park", 30, 148, 22, SKYBLUE);
-            DrawLine(30, 174, 700, 174, (Color){60,60,100,255});
-
-            DrawInputRow("Your X:", {220, 192, 120, 38}, t4X, t4AX, "e.g. 0");
-            DrawInputRow("Your Y:", {220, 246, 120, 38}, t4Y, t4AY, "e.g. 0");
-
-            if (DrawButton({220, 304, 200, 42}, "Search Nearest", (Color){40,80,180,255})) {
+            if (DrawBtn({44,300,200,44},"Search Nearest",(Color){30,80,200,255})) {
                 try {
-                    int x = t4X.empty() ? 0 : stoi(t4X);
-                    int y = t4Y.empty() ? 0 : stoi(t4Y);
-                    searchResults = ps.searchNearestParks(x, y);
-                    if (searchResults.empty()) { statusMsg = "No available parking!"; statusOK = false; }
-                    else { statusMsg = "Found " + to_string(searchResults.size()) + " available park(s)."; statusOK = true; }
-                } catch (...) {
-                    statusMsg = "Error: X and Y must be numbers!";
-                    statusOK = false;
-                    searchResults.clear();
-                }
+                    int x=t4X.empty()?0:stoi(t4X), y=t4Y.empty()?0:stoi(t4Y);
+                    searchRes=ps.searchNearest(x,y);
+                    statusOK=!searchRes.empty();
+                    statusMsg=searchRes.empty()?"No available parking!":"Found "+to_string(searchRes.size())+" park(s).";
+                } catch(...){ statusMsg="Error: X and Y must be numbers!"; statusOK=false; searchRes.clear(); }
             }
 
-            // Results table
-            if (!searchResults.empty()) {
-                DrawText("Rank", 30, 368, 16, LIGHTGRAY);
-                DrawText("Park Name", 110, 368, 16, LIGHTGRAY);
-                DrawText("Distance", 300, 368, 16, LIGHTGRAY);
-                DrawText("Free Slots", 430, 368, 16, LIGHTGRAY);
-                DrawLine(30, 388, 650, 388, (Color){60,60,100,255});
+            if (!searchRes.empty()) {
+                DrawRectangle(24,355,SW-48,32,(Color){30,35,75,255});
+                DrawText("Rank",40,363,16,(Color){150,180,255,255});
+                DrawText("Park Name",120,363,16,(Color){150,180,255,255});
+                DrawText("Distance",320,363,16,(Color){150,180,255,255});
+                DrawText("Free Slots",490,363,16,(Color){150,180,255,255});
+                DrawLine(24,387,SW-24,387,(Color){50,55,110,255});
 
-                for (int i = 0; i < (int)searchResults.size() && i < 10; i++) {
-                    int ry = 396 + i * 36;
-                    if (i % 2 == 0) DrawRectangle(28, ry-2, 640, 32, (Color){30,30,55,255});
-                    Color rc = (i == 0) ? (Color){255,215,0,255} : WHITE;
-                    DrawText(to_string(i + 1).c_str(), 44, ry + 6, 17, rc);
-                    DrawText(searchResults[i].park->name.c_str(), 110, ry + 6, 17, rc);
-                    string dist = to_string(searchResults[i].distance).substr(0, 5);
-                    DrawText(dist.c_str(), 300, ry + 6, 17, LIGHTGRAY);
-                    int fr = searchResults[i].park->capacity - (int)searchResults[i].park->cars.size();
-                    DrawText(to_string(fr).c_str(), 448, ry + 6, 17, (Color){80,220,100,255});
+                for (int i=0;i<(int)searchRes.size()&&i<12;i++) {
+                    int ry=391+i*38;
+                    if(ry+38>SH-50) break;
+                    if(i%2==0) DrawRectangle(24,ry,SW-48,38,(Color){22,22,55,255});
+                    Color rc=(i==0)?(Color){255,215,0,255}:WHITE;
+                    DrawText(to_string(i+1).c_str(),50,ry+10,17,rc);
+                    DrawText(searchRes[i].park->name.c_str(),120,ry+10,17,rc);
+                    string ds=to_string(searchRes[i].distance).substr(0,5);
+                    DrawText(ds.c_str(),320,ry+10,17,LIGHTGRAY);
+                    int fr=searchRes[i].park->capacity-(int)searchRes[i].park->cars.size();
+                    DrawText(to_string(fr).c_str(),506,ry+10,17,(Color){80,220,100,255});
                 }
             }
         }
 
         EndDrawing();
     }
-
     CloseWindow();
     return 0;
 }
